@@ -1,541 +1,646 @@
 <?php
+include 'koneksi.php';
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+class GenetikaPenjadwalan{
+    public $ukuranPopulasi, $jmlHari, $crossoverRate, $mutationRate, $maksimalGen, $penalti, $g = 0;
+    public function __construct($ukuranPopulasi = "ukuranPopulasi", $jmlHari = "jmlHari", $crossoverRate = "crossoverRate", $mutationRate = "mutationRate", $maksimalGen = "maksimalGen"){
+        $this->ukuranPopulasi = $ukuranPopulasi;
+        $this->jmlHari = $jmlHari;
+        $this->crossoverRate = $crossoverRate;
+        $this->mutationRate = $mutationRate;
+        $this->maksimalGen = $maksimalGen;
+    }
 
-class Genetika {
-     
-    private $PRAKTIKUM = 'PRAKTIKUM';
-    private $TEORI = 'TEORI';
-    private $LABORATORIUM = 'LABORATORIUM';
-    
-    private $jenisSemester;
-    private $tahunAkademik;
-    private $populasi;
-    private $crossOver;
-    private $mutasi;
-    
-    private $pengampu = [];
-    private $individu = [[[]]];
-    private $sks = [];
-    private $dosen = [];
-    
-    private $jam = [];
-    private $hari = [];
-    private $idosen = [];
-    
-    //waktu keinginan dosen
-    private $waktuDosen = [];
-    private $jenisMk = []; //reguler or praktikum
-    
-    private $ruangLaboratorium = [];
-    private $ruangReguler = [];
-    private $logAmbilData;
-    private $logInisialisasi;
-    
-    private $log;
-    private $induk = [];
-    
-    //jumat
-    private $idJumat;
-    private $rangeJumat = [];
-    private $kodeDhuhur;
-    //private $is_waktuDosen_tidak_bersedia_empty;
-    
-    private $CI;
-    
-    //function __construct($jenisSemester, $tahunAkademik, $populasi, $crossOver, $mutasi, $idJumat, $rangeJumat, $kodeDhuhur){               
-    public function __construct( $params ) { 
+    public function setUkuranPopulasi($ukuranPopulasi){
+        $this->ukuranPopulasi = $ukuranPopulasi;
+    }
+    public function getUkuranPopulasi(){
+        return $this->ukuranPopulasi;
+    }
+    public function setJmlHari($jmlHari){
+        $this->jmlHari = $jmlHari;
+    }
+    public function getJmlHari(){
+        return $this->jmlHari;
+    }
+    public function setCrossoverRate($crossoverRate){
+        $this->crossoverRate = $crossoverRate;
+    }
+    public function getCrossoverRate(){
+        return $this->crossoverRate;
+    }
+    public function setMutationRate($mutationRate){
+        $this->mutationRate = $mutationRate;
+    }
+
+    public function getMutationRate(){
+        return $this->mutationRate;
+    }
+    public function setMaksimalGen($maksimalGen){
+        $this->maksimalGen = $maksimalGen;
+    }
+    public function getMaksimalGen(){
+        return $this->maksimalGen;
+    }
+
+    public function hitungPopulasi(){
+        $x = $this->ukuranPopulasi;
+        return $x*2;
+    }
+
+    public function database(){
+        $kon = $kon = mysqli_connect("localhost","root","","skripsi-genetika");
         
-        $this->CI =& get_instance();
+        $data = mysqli_query($kon, "SELECT a.*, b.tanggal, b.hari, b.keterangan FROM karyawan a LEFT JOIN libur b ON a.nik = b.nik ");
         
-        $this->jenisSemester    = $params['jenisSemester'];
-        $this->tahunAkademik    = $params['tahunAkademik'];
-        $this->populasi         = intval( $params['populasi'] );
-        $this->crossOver        = $params['crossOver'];
-        $this->mutasi           = $params['mutasi'];
-        $this->idJumat          = intval( $params['idJumat'] );
-        $this->rangeJumat       = explode( '-',$params['rangeJumat'] );//$hari_jam = explode(':', $this->waktuDosen[$j][1]);
-        $this->kodeDhuhur       = intval( $params['kodeDhuhur'] );
+        $data_anggota = [];
+        while($row = mysqli_fetch_assoc($data)){
+            $data_anggota[] = $row;
+        }
+        return $data_anggota;
+    }
+
+    public function inisialisasi_awal(){
+        $data_anggota = $this->database();
+        //anggota polisi
+        $gen = [];
+        for ($i=0; $i < count($data_anggota); $i++) { 
+            $gen[$i] = $data_anggota[$i]['nama_karyawan'];
+        }     
+        $kromosom = $this->populasi($gen);        
+        //proses GA
+        $fk = $this->evaluasi($kromosom);       
+        $json = json_encode($fk);
+        file_put_contents("data.json", $json);     
+        $_SESSION['ukuran_populasi'] = $this->getUkuranPopulasi();
+        $_SESSION['jml_hari'] = $this->getJmlHari();
+        return $fk;
+    }
+    public function prosesPenjadwalanGA(){
+        $data_anggota = $this->database();
+        $gen = [];
+        for ($i=0; $i < count($data_anggota); $i++) { 
+            $gen[$i] = $data_anggota[$i]['nama_karyawan'];
+        }      
+
+        //print_r($this->getUkuranPopulasi());
+        if($this->getUkuranPopulasi() != -1){
+            $fitness_kromosom = $this->inisialisasi_awal();
+        }else{
+            $this->setUkuranPopulasi($_SESSION['ukuran_populasi']);
+            $source = 'data.json';
+            $content = file_get_contents($source);
+            $fitness_kromosom = json_decode($content, true);
+        }
+
+        $fitness_terbaik = 0;
+        $kromosom_terbaik = [];
+        $g = 0;
+        $start_time = microtime(true);
+        while($fitness_terbaik < (24*$this->jmlHari) && $g < $this->maksimalGen){
+            $hasil_seleksi = $this->seleksi($fitness_kromosom);
+          
+            $hasil_crossover = $this->crossover($hasil_seleksi);
+            $hasil_mutasi = $this->mutation($hasil_crossover);
+            
+            $hasil_akhir = $this->evaluasi_akhir($hasil_mutasi);
+            
+            usort($hasil_akhir, function($a, $b) {
+                return $b['fitness'] <=> $a['fitness'];
+            });
+            
+            $kromosom_tertinggi = $hasil_akhir[0];
+            
+            if(empty($kromosom_terbaik)){
+                $kromosom_terbaik = $kromosom_tertinggi;
+            }else if($kromosom_tertinggi['fitness'] > $kromosom_terbaik['fitness']){
+                $kromosom_terbaik = $kromosom_tertinggi;
+            }else{
+                $kromosom_terbaik = $kromosom_terbaik;
+            }
+            $fitness_terbaik = $kromosom_terbaik['fitness'];
+            
+             $g = $g+1;
+             
+        }
+        $end_time = microtime(true);
+
+        
+        $execution_time = ($end_time - $start_time);
+        
+        $seconds = $execution_time;
+        $start_seconds = round($seconds);
+       
+        if($start_seconds <60)
+        {
+            $hours = "";
+            $minutes ="";
+            $seconds = $start_seconds."s";
+        }elseif($start_seconds>60 && $start_seconds<3600){
+       
+            $minutes = floor($start_seconds/60);
+            $seconds = $start_seconds - $minutes*60;
+        
+            $minutes = "$minutes"."m";
+            $seconds = "$seconds"."s";
+            $hours = "";
+        }else{
+            $hours = floor($start_seconds/3600);
+            $minutes = floor (($start_seconds - $hours*3600)/60);
+            $seconds = ($start_seconds-($hours*3600))- $minutes*60;
+         
+            $minutes = "$minutes"."m";
+            $seconds = "$seconds"."s";
+            $hours = "$hours"."h";
+        }
+        //echo "$minutes $seconds";
+        for ($i=0; $i < count($kromosom_terbaik['kromosom']); $i++) {
+            $nama_anggota['jmlHari'] = $this->jmlHari;
+            $nama_anggota['penalti'] = $kromosom_terbaik['penalti'];
+            $nama_anggota['fitness'] = $kromosom_terbaik['fitness'];
+            $nama_anggota['iterasi'] = $g;
+            $nama_anggota['exec'] = [$hours, $minutes, $seconds];
+            $nama_anggota['kromosom'][$i]['key'] = $kromosom_terbaik['kromosom'][$i];
+            $nama_anggota['kromosom'][$i]['nama'] = $gen[$kromosom_terbaik['kromosom'][$i]];
+        }
+
+        // echo "====cek kesesuaian====";
+        $nama_anggota['akurasi'] = 0;
+        $hasil_cek = $this->cek_benturan($nama_anggota);
+        for ($i=0; $i < count($kromosom_terbaik['kromosom']); $i++) { 
+            $nama_anggota['kromosom'][$i]['bg'] = $hasil_cek[$i];
+           
+        }
+
+       
+         $nama_anggota['akurasi'] = round(($nama_anggota['fitness']/(24*$this->jmlHari))*100,2);
+        
+        return $nama_anggota;
+    }
+
+    public function populasi($gen){
+        $keygen = array_keys($gen);
+        $kromosom = [[]];
+
+        $jmlGen = (24*$this->jmlHari)*$this->ukuranPopulasi;
+        $g1 = floor($jmlGen / count($keygen));
+        $g2 = $jmlGen % count($keygen);
+        
+        $randomArray = [[]];
+        $randomArray2 = [];
+
+        for ($i=0; $i < $g1 ; $i++) {
+            $randomArray[$i] = [];
+            while (count($randomArray[$i]) < count($keygen)) {
+                $randomKey = mt_rand(0, count($keygen)-1);
+                $randomArray[$i][$randomKey] = $keygen[$randomKey];
+            }
+        }
+        $random1 = $this->array_flatten($randomArray);
+
+        while (count($randomArray2) < $g2) {
+            $randomKey = mt_rand(0, count($keygen)-1);
+            $randomArray2[$randomKey] = $keygen[$randomKey];
+        }
+        $random2 = $randomArray2;
+
+        $rand_gen = array_merge($random1, $random2);
+        
+        
+        for ($i=0; $i < $this->ukuranPopulasi; $i++) {
+                $kromosom[$i]= array_slice($rand_gen, $i*(24*$this->jmlHari), 24*$this->jmlHari);
+                //$kromosom[$i][$j] = $rand_gen[$j];
+        }
+       
+        return $kromosom;
+    }
+
+    public function evaluasi($kromosom){
+        //evaluasi hitung nilai fitness
+        $kromosom_pecah = [];
+        $total_fitness = [];
+        for ($i=0; $i < $this->ukuranPopulasi; $i++) {
+           
+            $penalti = 0;
+                for ($k=0; $k < $this->jmlHari ; $k++) { 
+                    $kromosom_perhari[$i][$k] = array_slice($kromosom[$i], $k*24, 24);
+                  
+                    $kromosom_perhari_s[$i][$k] = $kromosom_perhari[$i][$k];
+                    sort($kromosom_perhari_s[$i][$k]);
+                   
+                    $benturan=[[]];
+                    for ($j=0; $j < count($kromosom_perhari_s[$i][$k]); $j++) { 
+                        if($j > 0){
+                            if($kromosom_perhari_s[$i][$k][$j] == $kromosom_perhari_s[$i][$k][$j-1]){
+                                //$benturan[$i][$k][$j] = $kromosom_perhari_s[$i][$k][$j];
+                                $benturan[$i][$k][$j] = 1;
+                            }else{
+                                $benturan[$i][$k][$j] = 0;
+                            }
+                        }
+                    }
+                   
+                    $p = array_sum($benturan[$i][$k]);
+                    $penalti+=$p*2;
+
+                    // echo "<pre>";
+                    // echo "Penalti perhari: ".$penalti."</br>";
+                    // echo "</pre>";
+                    for ($l=0; $l < 3; $l++) {
+                        $kromosom_pershift[$i][$k][$l] = array_slice($kromosom_perhari[$i][$k], $l*8, 8);
+                        // echo "<pre>";
+                        //print_r($kromosom_perhari[$i][$k]);
+                        // print_r($kromosom_pershift[$i][$k][$l]);
+                        // echo "</pre>";
+                        //shift sama dalam 1 shift
+                        // echo "<pre>";
+                        sort($kromosom_pershift[$i][$k][$l]);
+                        // print_r($kromosom_pecah[$i][$j]);
+                        for ($x=0; $x < count($kromosom_pershift[$i][$k][$l]); $x++) { 
+                            if($x > 0){
+                                if($kromosom_pershift[$i][$k][$l][$x] == $kromosom_pershift[$i][$k][$l][$x-1]){
+                                    //$benturan[$i][$j][$x] = $kromosom_pecah[$i][$j][$x];
+                                    $penalti+=1*2;
+                                    // echo "Penalti pershift: ".$penalti."</br>";
+                                }
+                            }
+                        }
+                        
+
+                    }
+                    //cek shift malam, langsung masuk pagi
+                    if($k > 0){
+                        $diff = array_diff($kromosom_pershift[$i][$k][0],$kromosom_pershift[$i][$k-1][2]);
+                        if(count($diff) != count($kromosom_pershift[$i][$k][2])){
+                            $penalti+=1;
+                        }
+                    }
+
+                   
+                }
+            
+           
+            $total_fitness[$i] = (24*$this->jmlHari) - $penalti;
+            
+         
+        }
+
+        $fitness_kromosom = [[]];
+        for ($i=0; $i < $this->ukuranPopulasi; $i++) {
+            $fitness_kromosom[$i]['penalti'] = $penalti;
+            $fitness_kromosom[$i]['fitness'] = $total_fitness[$i];
+            $fitness_kromosom[$i]['kromosom'] = $kromosom[$i];
+        }
+        
+        //pilih berdasarkan nilai fitness
+        // usort($fitness_kromosom, function($a, $b) {
+        //     return $b['fitness'] <=> $a['fitness'];
+        // });
+
+        // for($i=0;$i<$this->ukuranPopulasi;$i++) {
+        //     for ($j=0; $j < 1; $j++) { 
+        //         echo "<pre>";
+        //         print_r($fitness_kromosom[$i]);
+        //         echo "</pre>";
+        //     }
+        // }
+        return $fitness_kromosom;
+    }
+
+    public function seleksi($fitness_kromosom){
+        $seleksi=[[]];
+        $key_seleksi=[[]];
+        $hasil_seleksi=[];
+        for ($i=0; $i < $this->ukuranPopulasi; $i++) {
+            for ($j=0; $j < 3; $j++) { 
+                $key_seleksi[$i][$j] = array_rand($fitness_kromosom, 1);
+                $seleksi[$i][$j] = $fitness_kromosom[$key_seleksi[$i][$j]];
+            }
+            // echo "<pre>";
+            // print_r($seleksi[$i]);
+            // echo "</pre>";
+
+            usort($seleksi[$i], function($a, $b) {
+                return $b['fitness'] <=> $a['fitness'];
+            });
+            // echo "<pre>";
+            // print_r($seleksi[$i]);
+            // echo "</pre>";
+
+            $hasil_seleksi[$i] = $seleksi[$i][0];    
+        }
+
+        return $hasil_seleksi;
+    }
+
+    public function crossover($hasil_seleksi){
+        // echo "<br>";
+        // echo "==Pilih 2 kromosom terbaik==";
+        // echo "<br>";
+        //sorting dr yg terbesar
+        usort($hasil_seleksi, function($a, $b) {
+            return $b['fitness'] <=> $a['fitness'];
+        });
+        //memilih induk
+        $kromosom_induk = [];
+        $kromosom_induk[0] = $hasil_seleksi[0];
+        $kromosom_induk[1] = $hasil_seleksi[1];
+        if($kromosom_induk[1] == $kromosom_induk[0]){
+            $kromosom_induk[1] = $hasil_seleksi[2];
+        }
+        // echo "<pre>";
+        // print_r($kromosom_induk);
+        // echo "</pre>";
+
+        // echo "<br>";
+        // echo "==Proses Crossover==";
+        // echo "<br>";
+
+        $batas_gen = count($kromosom_induk[0]['kromosom']);
+        $key_potong = array_rand($kromosom_induk[0]['kromosom'], 1);
+        $key_induk = [];
+        for ($i=$key_potong; $i < $batas_gen; $i++) { 
+            $key_induk[$i] = $i;
+        }
+        
+       
+
+        $key = array_keys($kromosom_induk[0]['kromosom']);
+
+        for($i=0;$i<count($kromosom_induk[0]['kromosom']);$i++) {
+            if(in_array($key[$i], $key_induk)) {
+                $temp = $kromosom_induk[0]['kromosom'][$i];
+                $kromosom_induk[0]['kromosom'][$i] = $kromosom_induk[1]['kromosom'][$i];
+                $kromosom_induk[1]['kromosom'][$i] = $temp;
+            }
+        }
+
+       
+        // echo "</br>";
+
+        array_splice($hasil_seleksi, -2, 2, $kromosom_induk);
+        
+        return ($hasil_seleksi);
+    }
+
+    public function random_0_1(){
+        return (float)mt_rand() / (float)getrandmax();
+    }
+
+    public function mutation($hasil_crossover){
+      
+        $hasil_mutasi = [[]];
+        for($i=0; $i < $this->ukuranPopulasi; $i++) {
+            $r = $this->random_0_1();
+            // echo "<br>";
+            // echo "==Random==";
+            // echo "<br>";
+
+            if($r<$this->mutationRate){
+                for ($j=0; $j < $this->jmlHari*3 ; $j++) { 
+                    $kromosom_pecah_mutasi[$i][$j] = array_slice($hasil_crossover[$i]['kromosom'], $j*8, 8);
+                    // echo "<pre>";
+                    // print_r($kromosom_pecah_mutasi[$i][$j]);
+                    // echo "</pre>";
+                    $array = $kromosom_pecah_mutasi[$i][$j];
+                    $a = array_rand($kromosom_pecah_mutasi[$i][$j]);
+                    // print_r($a);
+                    // echo "<br>";
+                    $b = array_rand($hasil_crossover[$i]['kromosom']);
+                    // print_r($b);
+                    // echo "<br>";
+                    $this->moveElement($array, $a, $b);
+                    $kromosom_pecah_mutasi[$i][$j] = $array;
+                    // echo "<pre>";
+                    // print_r($kromosom_pecah_mutasi[$i][$j]);
+                    // echo "</pre>";
+                    // echo "======";
+                    // echo "<br>";
+                }
+                $array1 = $kromosom_pecah_mutasi[$i];
+                // echo "<pre>";
+                // print_r($array1);
+                // echo "</pre>";
+                
+                $hasil_mutasi[$i] = $this->array_flatten($array1);
+              
+            }else{
+                $hasil_mutasi[$i] = $hasil_crossover[$i]['kromosom'];
+            }
+            // echo "<pre>";
+            // print_r($hasil_mutasi[$i]);
+            // echo "</pre>";
+        }
+
+        return $hasil_mutasi;
+    }
+
+    public function moveElement(&$array, $a, $b) {
+        $out = array_splice($array, $a, 1);
+        array_splice($array, $b, 0, $out);
+    }
+
+    public function array_flatten($array1) { 
+        if (!is_array($array1)) { 
+          return FALSE; 
+        } 
+        $result = array(); 
+        foreach ($array1 as $key => $value) { 
+          if (is_array($value)) { 
+            $result = array_merge($result, $this->array_flatten($value)); 
+          } 
+          else { 
+            $result[$key] = $value; 
+          } 
+        } 
+        return $result; 
+    }
+
+    public function evaluasi_akhir($hasil_mutasi){
+        //evaluasi hitung nilai fitness
+        $kromosom_pecah = [];
+        $total_fitness = [];
+        //echo "<========================================================================================================================>";
+        for ($i=0; $i < $this->ukuranPopulasi; $i++) {
+            
+            // echo "<pre>";
+            // print_r($hasil_mutasi[$i]);
+            // echo "</pre>";
+            $penalti_akhir = 0;
+                for ($k=0; $k < $this->jmlHari ; $k++) { 
+                    $kromosom_perhari[$i][$k] = array_slice($hasil_mutasi[$i], $k*24, 24);
+                    // echo "<pre>";
+                    // print_r($kromosom_perhari[$i]);
+                    // echo "</pre>";
+                    //perhari
+                    $kromosom_perhari_s[$i][$k] = $kromosom_perhari[$i][$k];
+                    sort($kromosom_perhari_s[$i][$k]);
+                    // echo "<pre>";
+                    // print_r($kromosom_perhari_s[$i][$k]);
+                    // echo "</pre>";
+                    $benturan=[[]];
+                    for ($j=0; $j < count($kromosom_perhari_s[$i][$k]); $j++) { 
+                        if($j > 0){
+                            if($kromosom_perhari_s[$i][$k][$j] == $kromosom_perhari_s[$i][$k][$j-1]){
+                                //$benturan[$i][$k][$j] = $kromosom_perhari_s[$i][$k][$j];
+                                $benturan[$i][$k][$j] = 1;
+                            }else{
+                                $benturan[$i][$k][$j] = 0;
+                            }
+                        }
+                    }
+                    // echo "<pre>";
+                    // print_r($benturan[$i][$k]);
+                    $p = array_sum($benturan[$i][$k]);
+                    $penalti_akhir+=$p*2;
+
+                    // echo "<pre>";
+                    // echo "Penalti perhari:".$penalti_akhir."</br>";
+                    // echo "</pre>";
+
+                    for ($l=0; $l < 3; $l++) {
+                        $kromosom_pershift[$i][$k][$l] = array_slice($kromosom_perhari[$i][$k], $l*8, 8);
+                        // echo "<pre>";
+                        //print_r($kromosom_perhari[$i][$k]);
+                        //print_r($kromosom_pershift[$i][$k][$l]);
+                        // echo "</pre>";
+                        //shift sama dalam 1 shift
+                        // echo "<pre>";
+
+                        sort($kromosom_pershift[$i][$k][$l]);
+                        // print_r($kromosom_pecah[$i][$j]);
+                        for ($x=0; $x < count($kromosom_pershift[$i][$k][$l]); $x++) { 
+                            if($x > 0){
+                                if($kromosom_pershift[$i][$k][$l][$x] == $kromosom_pershift[$i][$k][$l][$x-1]){
+                                    //$benturan[$i][$j][$x] = $kromosom_pecah[$i][$j][$x];
+                                    $penalti_akhir+=1*2;
+                                    //echo "Penalti pershift: ".$penalti_akhir."</br>";
+                                }
+                            }
+                        }
+                       
+                    }
+
+                    //cek shift malam, langsung masuk pagi
+                    if($k > 0){
+                        $diff = array_diff($kromosom_pershift[$i][$k][0],$kromosom_pershift[$i][$k-1][2]);
+                        if(count($diff) != count($kromosom_pershift[$i][$k][2])){
+                            $penalti_akhir+=1;
+                        }
+                    }
+
+                   
+                }
+            
+           
+            $total_fitness_akhir[$i] = (24*$this->jmlHari) - $penalti_akhir;
+            
+        }
+
+        $hasil_akhir = [[]];
+        for ($i=0; $i < $this->ukuranPopulasi; $i++) {
+            $hasil_akhir[$i]['penalti'] = $penalti_akhir;
+            $hasil_akhir[$i]['fitness'] = $total_fitness_akhir[$i];
+            $hasil_akhir[$i]['kromosom'] = $hasil_mutasi[$i];
+        }
+        
+        
+        return $hasil_akhir;
+    }
+
+    public function cek_benturan($nama_anggota){
+        // echo "<pre>";
+        for ($i=0; $i < $this->getJmlHari()*24 ; $i++) {
+            $krm[$i] = $nama_anggota['kromosom'][$i]['key'];
+        }
+        $same = [];
+        for ($j=0; $j < $this->getJmlHari(); $j++) {
+            $kromosom_perhari[$j] = array_slice($krm, $j*24, 24);
+            $kromosom_perhari_[$j] = array_slice($krm, $j*24, 24);
+
+            //print_r($kromosom_perhari[$j]);
+            sort($kromosom_perhari[$j]);
+            //print_r($kromosom_perhari[$j]);
+
+            //perhari
+            for ($k=0; $k < count($kromosom_perhari[$j]); $k++) { 
+                if($k > 0){
+                    if($kromosom_perhari[$j][$k] == $kromosom_perhari[$j][$k-1]){
+                        $benturan[$j][$k] = $kromosom_perhari[$j][$k];
+                    }else{
+                        $benturan[$j][$k] = -1;
+                    }
+                }
+            }
+            $benturan_pershift = [[]];
+            $benturan_malamPagi = [[-1]];
+            for ($l=0; $l < 3; $l++) {
+                $kromosom_pershift[$j][$l] = array_slice($kromosom_perhari_[$j], $l*8, 8);
+                                
+                if($j > 0 && $l == 2){
+                    // print_r($kromosom_pershift[$j-1][2]);
+                    // echo "<br>";
+                    // print_r($kromosom_pershift[$j][0]);
+                    // echo "<br>";
+                    $same[$j][$l] = array_intersect($kromosom_pershift[$j][0],$kromosom_pershift[$j-1][2]);
+                    $same_[$j][$l] = array_values($same[$j][$l]);
+                    // print_r($same[$j][$l]);
+                    // echo "<br>";
+                    if(!empty($same_[$j][$l])){
+                        $benturan_malamPagi[$j] = $same_[$j][$l];
+                    }else{
+                        $benturan_malamPagi[$j][0] = -1;
+                    }
+                }
+                
+                // $kromosom_pershift_[$j][$l] = array_slice($kromosom[$j], $l*8, 8);
+                sort($kromosom_pershift[$j][$l]);
+                for ($m=0; $m < count($kromosom_pershift[$j][$l]); $m++) { 
+                    if ($m > 0) {
+                        if ($kromosom_pershift[$j][$l][$m] == $kromosom_pershift[$j][$l][$m-1]) {
+                            $benturan_pershift[$j][$l][$m-1] = $kromosom_pershift[$j][$l][$m];
+                        }else{
+                            $benturan_pershift[$j][$l][$m-1] = -1;
+                        }
+                    }
+                }
+            }
+            
+            
+            $benturan[$j] = array_unique($benturan[$j]);
+          
+
+            for ($k=0; $k < count($kromosom_perhari_[$j]); $k++) {
+                if ($k < 8 && in_array($kromosom_perhari_[$j][$k], $benturan_pershift[$j][0])) {
+                    $bg[$j][$k] = "red";
+                }elseif($k > 8 && $k < 16 && in_array($kromosom_perhari_[$j][$k], $benturan_pershift[$j][1])){
+                    $bg[$j][$k] = "red";
+                }elseif($k > 16 && $k < 24 && in_array($kromosom_perhari_[$j][$k], $benturan_pershift[$j][2])){
+                    $bg[$j][$k] = "red";
+                }elseif( in_array($kromosom_perhari_[$j][$k], $benturan_malamPagi[$j])){
+                    $bg[$j][$k] = "blue";
+                }elseif(in_array($kromosom_perhari_[$j][$k], $benturan[$j])) {
+                    $bg[$j][$k] = "yellow";
+                } elseif ($k > 15 && in_array($kromosom_perhari_[$j][$k])) {
+                    $bg[$j][$k] = "green";
+                } else {
+                    $bg[$j][$k] = "white";
+                }
+            }
+
+
+           
+            
+        }
+      
+        $hasil_cek = $this->array_flatten($bg);
+        return $hasil_cek;
+
        
     }
     
-    public function AmbilData()
-    {
-        
-        $rs_data = $this->CI->db->query("
-            SELECT a.id_pengampu, b.sks, a.id_dosen, b.jenis
-            FROM pengampu a 
-            LEFT JOIN matakuliah b ON a.id_mk = b.id_mk 
-            WHERE b.semester%2 = $this->jenisSemester AND a.tahun_akademik = '$this->tahunAkademik'");
-        
-        $i = 0;
 
-        foreach ($rs_data->result() as $data) {
-            $this->pengampu[$i]     = intval($data->id_pengampu);
-            $this->sks[$i]          = intval($data->sks);
-            $this->dosen[$i]        = intval($data->id_dosen);
-            $this->jenisMk[$i]      = $data->jenis;
-            $i++;
-        }
-        
-        
-        
-        // data jam
-        $rs_jam = $this->CI->db->query("SELECT id_jam FROM jam");
-        
-        $i = 0;
-        foreach ($rs_jam->result() as $data) {
-            $this->jam[$i] = intval($data->id_jam); $i++;
-        }
-        
-        // data hari
-        $rsHari = $this->CI->db->query("SELECT id_hari FROM hari");
-        $i = 0;
-        foreach ($rsHari->result() as $data) {
-            $this->hari[$i] = intval($data->id_hari); $i++;
-        }
-        
-        // ruang teori
-        $rsRuangReguler = $this->CI->db->query("SELECT id_ruang FROM ruang WHERE jenis = '$this->TEORI'");
-        $i = 0;
-        foreach ($rsRuangReguler->result() as $data) {
-            $this->ruangReguler[$i] = intval($data->id_ruang); $i++;
-        }
-        
-        // ruang lab
-        $rsRuanglaboratorium = $this->CI->db->query("SELECT id_ruang FROM ruang  WHERE jenis = '$this->LABORATORIUM'");
-        $i = 0;
-        foreach ($rsRuanglaboratorium->result() as $data) {
-            $this->ruangLaboratorium[$i] = intval($data->id_ruang);
-            $i++;
-        }
-        
-        //var_dump($this->ruangLaboratorium);
-        //exit(0);
-        
-        // $rs_WaktuDosen = $this->CI->db->query("SELECT kode_dosen, CONCAT_WS(':',kode_hari,kode_jam) as kode_hari_jam FROM waktu_tidak_bersedia");        
-        // $i             = 0;
-        // foreach ($rs_WaktuDosen->result() as $data) {
-        //     $this->idosen[$i]         = intval($data->kode_dosen);
-        //     $this->waktuDosen[$i][0] = intval($data->kode_dosen);
-        //     $this->waktuDosen[$i][1] = $data->kode_hari_jam;
-        //     $i++;
-        // }  
-     
-        
-    }
-    
-    
-    public function Inisialisai()
-    {
-        
-        $jumlahPengampu = count($this->pengampu);        
-        $jumlahJam = count($this->jam);
-        $jumlahHari = count($this->hari);
-        $jumlahRuangReguler = count($this->ruangReguler);
-        $jumlahRuangLab = count($this->ruangLaboratorium);
-        
-        for ($i = 0; $i < $this->populasi; $i++) {
-            
-            for ($j = 0; $j < $jumlahPengampu; $j++) {
-                
-                $sks = $this->sks[$j];
-                
-                $this->individu[$i][$j][0] = $j;
-                
-                // Penentuan jam secara acak ketika 1 sks 
-                if ($sks == 1) {
-                    $this->individu[$i][$j][1] = mt_rand(0,  $jumlahJam - 1);
-                }
-                
-                // Penentuan jam secara acak ketika 2 sks 
-                if ($sks == 2) {
-                    $this->individu[$i][$j][1] = mt_rand(0, ($jumlahJam - 1) - 1);
-                }
-                
-                // Penentuan jam secara acak ketika 3 sks
-                if ($sks == 3) {
-                    $this->individu[$i][$j][1] = mt_rand(0, ($jumlahJam - 1) - 2);
-                }
-                
-                // Penentuan jam secara acak ketika 4 sks
-                if ($sks == 4) {
-                    $this->individu[$i][$j][1] = mt_rand(0, ($jumlahJam - 1) - 3);
-                }
-                
-                $this->individu[$i][$j][2] = mt_rand(0, $jumlahHari - 1); // Penentuan hari secara acak 
-                
-                if ($this->jenisMk[$j] === $this->TEORI) {
-                    $this->individu[$i][$j][3] = intval($this->ruangReguler[mt_rand(0, $jumlahRuangReguler - 1)]);
-                } else {
-                    $this->individu[$i][$j][3] = intval($this->ruangLaboratorium[mt_rand(0, $jumlahRuangLab - 1)]);                    
-                }
-            }
-        }
-    }
-    
-    private function CekFitness($indv)
-    {
-        $penalty = 0;
-        
-        $hariJumat = intval($this->idJumat);
-        $jumat_0 = intval($this->rangeJumat[0]);
-        $jumat_1 = intval($this->rangeJumat[1]);
-        $jumat_2 = intval($this->rangeJumat[2]);
-        
-        //var_dump($this->rangeJumat);
-        //exit();
-        
-        $jumlahPengampu = count($this->pengampu);
-        
-        for ($i = 0; $i < $jumlahPengampu; $i++)
-        {
-          
-          $sks = intval($this->sks[$i]);
-          
-          $jamA = intval($this->individu[$indv][$i][1]);
-          $hariA = intval($this->individu[$indv][$i][2]);
-          $ruangA = intval($this->individu[$indv][$i][3]);
-          $dosenA = intval($this->dosen[$i]);        
-          
-          
-            for ($j = 0; $j < $jumlahPengampu; $j++) {                 
-              
-                $jamB = intval($this->individu[$indv][$j][1]);
-                $hariB = intval($this->individu[$indv][$j][2]);
-                $ruangB = intval($this->individu[$indv][$j][3]);
-                $dosenB = intval($this->dosen[$j]);
-                  
-                  
-                //1.bentrok ruang dan waktu dan 3.bentrok dosen
-                
-                //ketika pemasaran matakuliah sama, maka langsung ke perulangan berikutnya
-                if ($i == $j)
-                    continue;
-                
-                // Bentrok Ruang dan Waktu
-                //Ketika jam,hari dan ruangnya sama, maka penalty + satu
-                if ($jamA == $jamB && $hariA == $hariB && $ruangA == $ruangB) $penalty += 1;
-        
-                
-                //Ketika sks  = 2, 
-                //hari dan ruang sama, dan 
-                //jam kedua sama dengan jam pertama matakuliah yang lain, maka penalty + 1
-                if ($sks >= 2)
-                {
-                    if ($jamA + 1 == $jamB && $hariA == $hariB && $ruangA == $ruangB) { 
-                        $penalty += 1;
-                    }
-                }
-                
-                
-                //Ketika sks  = 3, 
-                //hari dan ruang sama dan 
-                //jam ketiga sama dengan jam pertama matakuliah yang lain, maka penalty + 1
-                if ($sks >= 3) {
-                    if ($jamA + 2 == $jamB && $hariA == $hariB && $ruangA == $ruangB) {
-                        $penalty += 1;
-                    }
-                }
-                
-                //Ketika sks  = 4, 
-                //hari dan ruang sama dan 
-                //jam ketiga sama dengan jam pertama matakuliah yang lain, maka penalty + 1
-                if ($sks >= 4) {
-                    if ($jamA + 3 == $jamB && $hariA == $hariB && $ruangA == $ruangB) {
-                        $penalty += 1;
-                    }
-                }
-                
-                // BENTROK DOSEN
-                //ketika jam sama, hari, dosen sama
-                if ($jamA == $jamB && $hariA == $hariB &&  $dosenA == $dosenB) $penalty += 1;
-                          
-                if ($sks >= 2) {
-                    //ketika jam, hari, dosen sama
-                    if (($jamA + 1) == $jamB && $hariA == $hariB && $dosenA == $dosenB) $penalty += 1;
-                }
-                
-                if ($sks >= 3) {
-                    if ( ($jamA + 2) == $jamB && $hariA == $hariB && $dosenA == $dosenB) $penalty += 1;
-                }
-                
-                if ($sks >= 4) {
-                    if ( ($jamA + 3) == $jamB && $hariA == $hariB && $dosenA == $dosenB) $penalty += 1;
-                    
-                }                
-            }
-            
-            // Bentrok sholat Jumat
-             //2.bentrok sholat jumat
-            if (($hariA  + 1) == $hariJumat) {
-                
-                if ($sks == 1) {
-                    if ( ($jamA == ($jumat_0 - 1)) || ($jamA == ($jumat_1 - 1)) || ($jamA == ($jumat_2 - 1)) ) {
-                        $penalty += 1;
-                    }
-                }
-                
-                
-                if ($sks == 2) {
-                    if ( ($jamA == ($jumat_0 - 2)) || ($jamA == ($jumat_0 - 1)) || ($jamA == ($jumat_1 - 1)) || ($jamA == ($jumat_2 - 1)) ) {
-                        /*
-                        echo '$sks = ' . $sks. '<br>';
-                        echo '$jamA = ' . $jamA. '<br>';
-                        echo '($jumat_0 - 2) = ' . ($jumat_0 - 2) . '<br>';
-                        echo '($jumat_0 - 1) = ' . ($jumat_0 - 1). '<br>';
-                        echo '($jumat_1 - 1) = ' . ($jumat_1 - 1). '<br>';
-                        echo '($jumat_2 - 1) = ' . ($jumat_2- 1). '<br>';
-                        exit();
-                        */
-                        
-                        $penalty += 1;                        
-                    }
-                }
-                
-                if ($sks == 3) {
-                    if ( ($jamA == ($jumat_0 - 3)) || ($jamA == ($jumat_0 - 2)) ||
-                          ($jamA == ($jumat_0 - 1)) ||($jamA == ($jumat_1 - 1)) ||
-                          ($jamA == ($jumat_2 - 1)) ) {                        
-                        $penalty += 1;                        
-                    }
-                }
-                
-                if ($sks == 4) {
-                    if (
-                          ($jamA == ($jumat_0 - 4)) || ($jamA == ($jumat_0 - 3)) ||
-                          ($jamA == ($jumat_0 - 2)) || ($jamA == ($jumat_0 - 1)) ||
-                          ($jamA == ($jumat_1 - 1)) || ($jamA == ($jumat_2 - 1))
-                        ) {                        
-                        $penalty += 1;                        
-                    }
-                }
-            }
-            
-            // $jumlah_waktu_tidak_bersedia = count($this->idosen);
-            
-            // for ($j = 0; $j < $jumlah_waktu_tidak_bersedia; $j++)
-            // {
-            //     if ($dosenA == $this->idosen[$j])
-            //     {
-            //         $hari_jam = explode(':', $this->waktuDosen[$j][1]);
-                    
-            //         if ($this->jam[$jamA] == $hari_jam[1] &&
-            //             $this->hari[$hariA] == $hari_jam[0])
-            //         {                    
-            //             $penalty += 1;                        
-            //         }
-            //     }                            
-            // }
-                       
-            
-            //
-            
-            // Bentrok waktu dhuhur
-            /*
-            if ($jamA == ($this->kodeDhuhur - 1))
-            {                
-                $penalty += 1;
-            }
-            */
-            
-        }      
-        
-        $fitness = floatval(1 / (1 + $penalty));  
-        
-        return $fitness;        
-    }
-    
-    public function HitungFitness()
-    {
-        //hard constraint
-        //1.bentrok ruang dan waktu
-        //2.bentrok sholat jumat
-        //3.bentrok dosen
-        //4.bentrok keinginan waktu dosen 
-        //5.bentrok waktu dhuhur 
-        //=>6.praktikum harus pada ruang lab {telah ditetapkan dari awal perandoman
-        //    bahwa jika praktikum harus ada pada LAB dan mata kuliah reguler harus 
-        //    pada kelas reguler
-
-        
-        for ($indv = 0; $indv < $this->populasi; $indv++) {            
-            $fitness[$indv] = $this->CekFitness($indv);            
-        }
-        
-        return $fitness;
-    }
-    
-    // Seleksi
-    public function Seleksi( $fitness ) {
-        $jumlah = 0;
-        $rank   = [];
-        
-        
-        for ($i = 0; $i < $this->populasi; $i++) {
-
-            //proses ranking berdasarkan nilai fitness
-            $rank[$i] = 1;
-            for ($j = 0; $j < $this->populasi; $j++) {
-                
-                $fitnessA = floatval($fitness[$i]);
-                $fitnessB = floatval($fitness[$j]);
-                
-                if ( $fitnessA > $fitnessB ) $rank[$i] += 1;                    
-                
-            }
-            
-            $jumlah += $rank[$i];
-        }
-        
-        $jumlahRank = count($rank);
-        for ($i = 0; $i < $this->populasi; $i++) {
-            //proses seleksi berdasarkan ranking yang telah dibuat
-            //int nexRandom = random.Next(1, jumlah);
-            //random = new Random(nexRandom);
-            $target = mt_rand(0, $jumlah - 1);           
-          
-            $cek    = 0;
-            for ($j = 0; $j < $jumlahRank; $j++) {
-                $cek += $rank[$j];
-                if (intval($cek) >= intval($target)) {
-                    $this->induk[$i] = $j;
-                    break;
-                }
-            }
-        }
-    }
-
-    public function StartCrossOver()
-    {
-        $individuBaru = [[[]]];
-        $jumlahPengampu = count( $this->pengampu );
-        
-        for ($i = 0; $i < $this->populasi; $i += 2) {
-            $b = 0;
-            
-            $cr = mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax();
-            
-            if (floatval($cr) < floatval($this->crossOver)) {
-                //ketika nilai random kurang dari nilai probabilitas pertukaran
-                //maka jadwal mengalami prtukaran
-                
-                $a = mt_rand(0, $jumlahPengampu - 2);
-                while ($b <= $a) {
-                    $b = mt_rand(0, $jumlahPengampu - 1);
-                }
-                
-                //penentuan jadwal baru dari awal sampai titik pertama
-                for ($j = 0; $j < $a; $j++) {
-                    for ($k = 0; $k < 4; $k++) {                        
-                        $individuBaru[$i][$j][$k]     = $this->individu[$this->induk[$i]][$j][$k];
-                        $individuBaru[$i + 1][$j][$k] = $this->individu[$this->induk[$i + 1]][$j][$k];
-                    }
-                }
-                
-                // Penentuan jadwal baru dai titik pertama sampai titik kedua
-                for ($j = $a; $j < $b; $j++) {
-                    for ($k = 0; $k < 4; $k++) {
-                        $individuBaru[$i][$j][$k]     = $this->individu[$this->induk[$i + 1]][$j][$k];
-                        $individuBaru[$i + 1][$j][$k] = $this->individu[$this->induk[$i]][$j][$k];
-                    }
-                }
-                
-                // Penentuan jadwal baru dari titik kedua sampai akhir
-                for ($j = $b; $j < $jumlahPengampu; $j++) {
-                    for ($k = 0; $k < 4; $k++) {
-                        $individuBaru[$i][$j][$k]     = $this->individu[$this->induk[$i]][$j][$k];
-                        $individuBaru[$i + 1][$j][$k] = $this->individu[$this->induk[$i + 1]][$j][$k];
-                    }
-                }
-            } else { 
-
-                // Ketika nilai random lebih dari nilai probabilitas pertukaran, maka jadwal baru sama dengan jadwal terpilih
-                for ($j = 0; $j < $jumlahPengampu; $j++) {
-                    for ($k = 0; $k < 4; $k++) {
-                        $individuBaru[$i][$j][$k]     = $this->individu[$this->induk[$i]][$j][$k];
-                        $individuBaru[$i + 1][$j][$k] = $this->individu[$this->induk[$i + 1]][$j][$k];
-                    }
-                }
-            }
-        }
-        
-        $jumlahPengampu = count($this->pengampu);
-        
-        for ($i = 0; $i < $this->populasi; $i += 2) {
-            for ($j = 0; $j < $jumlahPengampu ; $j++) {
-                for ($k = 0; $k < 4; $k++) {
-                    $this->individu[$i][$j][$k] = $individuBaru[$i][$j][$k];
-                    $this->individu[$i + 1][$j][$k] = $individuBaru[$i + 1][$j][$k];
-                }
-            }
-        }
-    }
-    
-    public function Mutasi(){
-        $fitness = [];
-        
-        $r                  = mt_rand(0, mt_getrandmax() - 1) / mt_getrandmax();
-        $jumlahPengampu     = count($this->pengampu);
-        $jumlahJam          = count($this->jam);
-        $jumlahHari         = count($this->hari);
-        $jumlahRuangReguler = count($this->ruangReguler);
-        $jumlahRuangLab     = count($this->ruangLaboratorium);
-        
-        for ($i = 0; $i < $this->populasi; $i++) {
-
-            //Ketika nilai random kurang dari nilai probalitas Mutasi, 
-            //maka terjadi penggantian komponen
-            
-            if ($r < $this->mutasi) {
-
-                //Penentuan pada matakuliah dan kelas yang mana yang akan dirandomkan atau diganti
-                $krom = mt_rand(0, $jumlahPengampu - 1);
-                
-                $j = intval($this->sks[$krom]);
-                
-                switch ($j) {
-                    case 1:
-                        $this->individu[$i][$krom][1] = mt_rand(0, $jumlahJam - 1);
-                        break;
-                    case 2:
-                        $this->individu[$i][$krom][1] = mt_rand(0, ($jumlahJam - 1) - 1);
-                        break;
-                    case 3:
-                        $this->individu[$i][$krom][1] = mt_rand(0, ($jumlahJam - 1) - 2);
-                        break;
-                    case 4:
-                        $this->individu[$i][$krom][1] = mt_rand(0, ($jumlahJam - 1) - 3);
-                        break;
-                }
-                //Proses penggantian hari
-                $this->individu[$i][$krom][2] = mt_rand(0, $jumlahHari - 1);
-                
-                //proses penggantian ruang               
-                if ($this->jenisMk[$krom] === $this->TEORI) {
-                    $this->individu[$i][$krom][3] = $this->ruangReguler[mt_rand(0, $jumlahRuangReguler - 1)];
-                } else {
-                    $this->individu[$i][$krom][3] = $this->ruangLaboratorium[mt_rand(0, $jumlahRuangLab - 1)];
-                }
-                  
-            }
-            
-            $fitness[$i] = $this->CekFitness($i);
-        }
-        return $fitness;
-    }
-    
-    
-    public function GetIndividu( $indv ) {
-
-        $individuSolusi = [[]];
-        for ($j = 0; $j < count($this->pengampu); $j++){
-            $individuSolusi[$j][0] = intval($this->pengampu[$this->individu[$indv][$j][0]]);
-            $individuSolusi[$j][1] = intval($this->jam[$this->individu[$indv][$j][1]]);
-            $individuSolusi[$j][2] = intval($this->hari[$this->individu[$indv][$j][2]]);                        
-            $individuSolusi[$j][3] = intval($this->individu[$indv][$j][3]);            
-        }
-        
-        return $individuSolusi;
-    }
-    
-    
+      
 }

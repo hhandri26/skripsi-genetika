@@ -4,99 +4,94 @@ if( !isset( $_SESSION["login"])){
 	header("Location: login.php");
 	exit;
 }
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 require 'koneksi.php';
+include 'genetika.php';
 
 if (isset($_POST["submit"])) {
 
-$awal= $_POST['tanggal_mulai'];
-$akhir= $_POST['tanggal_selesai'];
+    $awal   = $_POST['tanggal_mulai'];
+    $akhir  = $_POST['tanggal_selesai'];
 
 
-$a = new DateTime($awal);
-$b= new DateTime($akhir);
-$tanggal=date_diff($a,$b);
-$jumlah= (intval($tanggal->days)+1);
+    $a = new DateTime($awal);
+    $b= new DateTime($akhir);
+    $tanggal=date_diff($a,$b);
+    $jumlah= (intval($tanggal->days)+1);
+    // populasi
+    $populasi = 0;
+    // ambil data karyawan
+    $array_karyawan = array();
+    $karyawan = mysqli_query($kon, "SELECT a.*, b.tanggal, b.hari, b.keterangan FROM karyawan a LEFT JOIN libur b ON a.nik = b.nik ");
 
-echo "$jumlah ";
-// populasi
-$populasi = 0;
-
-// ambil data karyawan
-$array_karyawan = array();
-$karyawan = mysqli_query($kon, "SELECT a.*, b.tanggal, b.hari, b.keterangan FROM karyawan a LEFT JOIN libur b ON a.nik = b.nik ");
-
-while( $row = mysqli_fetch_assoc($karyawan)){
-    $kr['nik']              = $row["nik"];
-    $kr['nama_karyawan']    = $row["nama_karyawan"];
-    $kr['area']             = $row["area"];
-    $kr['plotting']         = $row["plotting"];
-    $kr['tanggal_libur']    = $row["tanggal"];
-    $kr['keterangan_libur'] = $row["keterangan"];
-    $populasi++;
-    array_push($array_karyawan,$kr);
-
-}
-
-// hitung jumlah hari jadwal
-$startTimeStamp = strtotime($awal);
-$endTimeStamp = strtotime($akhir);
-$timeDiff = abs($endTimeStamp - $startTimeStamp);
-$numberDays = $timeDiff/86400;
-$numberDays = intval($numberDays);
-
-// ambil jumlah shift
-$jumlah_shift = 0;
-$array_shift = array();
-$shift = mysqli_query($kon, "SELECT * FROM shift ");
-
-while( $row = mysqli_fetch_assoc($shift)){
-    $sf['kd_shift']         = $row["kd_shift"];
-    $sf['nama_shift']       = $row["nama_shift"];
-    $sf['jam_mulai']        = $row["jam_mulai"];
-    $sf['jam_selesai']      = $row["jam_selesai"];
-    $jumlah_shift++;
-    array_push($array_shift,$sf);
-
-}
-$prosess_jadwal = array();
-    // inisialisasi
-   $month =date("m",strtotime(str_replace('-','/', $awal)));
-   $year = date("Y",strtotime(str_replace('-','/', $awal)));
-   
-    for ($i = 1; $i <= $numberDays; $i++) {
-        $hari_ke            =  date("d-m-Y",strtotime($month.'/'.$i.'/'.$year));
-       
-        $count_prosess = count($prosess_jadwal);
-        
-            for ($j = 0; $j <= $jumlah_shift; $j++) {            
-                // melakukan pengacakan 
-                $rand_id_karyawan   =  mt_rand(0,$populasi);
-                    $dt['nik']              = $array_karyawan[$rand_id_karyawan]['nik'];
-                    $dt['nama_karyawan']    = $array_karyawan[$rand_id_karyawan]['nama_karyawan'];
-                    $dt['tanggal']          = $hari_ke;
-                    $dt['kd_shift']         =$array_shift[$j]['kd_shift'];
-                    $dt['nama_shift']       = $array_shift[$j]['nama_shift'];
-                    $dt['jam_mulai']        = $array_shift[$j]['jam_mulai'];
-                    $dt['jam_selesai']      = $array_shift[$j]['jam_selesai'];
-
-                    array_push($prosess_jadwal,$dt);
-
-                
-               
-    
-               
-          
-            
-
-        }
-        
-        
-        
-       
-
-      
+    while( $row = mysqli_fetch_assoc($karyawan)){
+        $kr['nik']              = $row["nik"];
+        $kr['nama_karyawan']    = $row["nama_karyawan"];
+        $kr['area']             = $row["area"];
+        $kr['plotting']         = $row["plotting"];
+        $kr['tanggal_libur']    = $row["tanggal"];
+        $kr['keterangan_libur'] = $row["keterangan"];
+        $populasi++;
+        array_push($array_karyawan,$kr);
 
     }
+
+    // hitung jumlah hari jadwal
+    $startTimeStamp = strtotime($awal);
+    $endTimeStamp = strtotime($akhir);
+    $timeDiff = abs($endTimeStamp - $startTimeStamp);
+    $numberDays = $timeDiff/86400;
+    $numberDays = intval($numberDays);
+
+    // ambil jumlah shift
+    $jumlah_shift = 0;
+    $array_shift = array();
+    $shift = mysqli_query($kon, "SELECT * FROM shift ");
+
+    while( $row = mysqli_fetch_assoc($shift)){
+        $sf['kd_shift']         = $row["kd_shift"];
+        $sf['nama_shift']       = $row["nama_shift"];
+        $sf['jam_mulai']        = $row["jam_mulai"];
+        $sf['jam_selesai']      = $row["jam_selesai"];
+        $jumlah_shift++;
+        array_push($array_shift,$sf);
+
+    }
+    $prosess_jadwal = array();
+    // inisialisasi
+    $month =date("m",strtotime(str_replace('-','/', $awal)));
+    $year = date("Y",strtotime(str_replace('-','/', $awal)));
+
+    // get params
+    $params = mysqli_query($kon, "SELECT * FROM parameter ");
+    $row_params = mysqli_fetch_row($params);
+    $individu   = $row_params[1];
+    $iterasi    = $row_params[2];
+    $pc         = $row_params[3];
+    $pm         = $row_params[4];
+
+
+    // prosess
+    $penjadwalan = new GenetikaPenjadwalan;
+    $penjadwalan->setUkuranPopulasi($individu);
+    $penjadwalan->setJmlHari($jumlah);
+    //$penjadwalan->setCrossoverRate($_POST['crossoverRate']);
+    $penjadwalan->setMutationRate($pm);
+    $penjadwalan->setMaksimalGen($iterasi);
+    $nama_anggota = $penjadwalan->prosesPenjadwalanGA();
+
+   
+    $_SESSION['anggota'] = $nama_anggota;
+
+    if(isset($_SESSION['jml_hari'])){
+        $jml_hari = $_SESSION['jml_hari'];
+      }
+      if(isset($_SESSION['ukuran_populasi'])){
+        $ukuran_populasi = $_SESSION['ukuran_populasi'];
+      }
+   
     
 }
 
@@ -200,53 +195,90 @@ $prosess_jadwal = array();
 				<button text="submit" name="submit"> Proses</button>
 
 			</form>
+           
+            <div class="col-md-12">
+            <?php
+                echo '<table class="table table-striped table-sm"">';
+                echo '<tr>
+                    <td>Populasi<td>
+                    <td> : <td>
+                    <td>'.$penjadwalan->getUkuranPopulasi().'<td>
+                </tr>';
+                echo '<tr>
+                    <td>Jumlah Hari<td>
+                    <td> : <td>
+                    <td>'.$penjadwalan->getJmlHari().'<td>
+                </tr>';
+                echo '<tr>
+                    <td>Mutation Rate<td>
+                    <td> : <td>
+                    <td>'.$penjadwalan->getMutationRate().'<td>
+                </tr>';
+                echo '<tr>
+                    <td>Max Generasi<td>
+                    <td> : <td>
+                    <td>'.$penjadwalan->getMaksimalGen().'<td>
+                </tr>';
+               
+                echo '<tr>
+                    <td>Iterasi<td>
+                    <td> : <td>
+                    <td>'.$nama_anggota['iterasi'].'<td>
+                </tr>';
+                echo '<tr>
+                    <td>Fitness<td>
+                    <td> : <td>
+                    <td>'.$nama_anggota['fitness'].'<td>
+                </tr>';
+                echo '<tr>
+                    <td>Waktu Eksekusi<td>
+                    <td> : <td>
+                    <td>'.implode(" ",$nama_anggota['exec']).'<td>
+                </tr>';
+                echo '<tr>
+                    <td>Kesesuaian<td>
+                    <td> : <td>
+                    <td>'.$nama_anggota['akurasi'].' %<td>
+                </tr>';
+                echo '<table>';
+                ?>
+               
+
+            </div>
+            
             <div class="col-md-12">
                 <div class="table-responsive">
-                    <table class="table table-striped table-sm">
-                        <thead>
-                            <tr>
-                                <th>No</th>
-                                <th>Nik</th>
-                                <th>Nama</th>
-                                <th>Tanggal</th>
-                                <th>Shift</th>
-                                <th>Jam Mulai</th>
-                                <th>Jam Selesai</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        
-                            <?php 
-
-                            $nomor=1;
-
-                            if(isset($prosess_jadwal)){
-
-
-                            foreach($prosess_jadwal as $row){
-                                if($row['nik'] !=='' && $row['nama_karyawan'] !=='' &&  $row['nama_shift'] ){
-
-
-
-                            ?>
-                                    <tr>
-                                        <td><?= $nomor++ ?></td>
-                                        <td><?= $row['nik']; ?></td>
-                                        <td><?= $row['nama_karyawan']; ?></td>
-                                        <td><?= $row['tanggal']; ?></td>
-                                        <td><?= $row['nama_shift']; ?></td>
-                                        <td><?= $row['jam_mulai']; ?></td>
-                                        <td><?= $row['jam_selesai']; ?></td>
-                                    
-                                    </tr>
-                                <?php  }}}else{
-                                    echo '<tr><td colspan="6" align="center"><i>Data Tidak Ditemukan</i></td></tr>';
-                                } ?>
-                        </tbody>
-                    </table>
+                    <?php
+                        echo '<table class="table table-bordered mt-3" align="center" cellspacing="0" cellpadding="2">';
+                        echo '<tr>
+                            <td align="center">Tgl</td>
+                            <td align="center">Shift</td>
+                            <td colspan="8" align="center">Daftar Anggota</td>
+                        </tr>';
+                        for ($i=0; $i < ($penjadwalan->getJmlHari()*3); $i++) {
+                            if ($i % 3 == 0) {
+                                echo '<tr><td align="center" rowspan="3">'. (($i/3)+1) .'</td>';
+                            }
+                            echo '<td align="center">' .(($i % 3) + 1). '</td>';
+                            //$bg_color = "";
+                            for ($j=0; $j < 8; $j++) {
+                                echo '<td bgcolor="' .$nama_anggota['kromosom'][$j]['bg']. '">' .$nama_anggota['kromosom'][$j]['nama']. '</td>' ;
+                            }
+                            array_splice($nama_anggota['kromosom'], 0, 8);
+                            echo '</tr>';
+                        }
+                        echo '</table>';
+                    ?>
                 </div>
 
             </div>
+
+            <a href="cetak.php" target="_blank" class="btn btn-success btn-icon-split float-right">
+                    <span class="icon text-white-50">
+                    <i class="fa fa-print"></i>
+                    </span>
+                    <span class="text">Print Jadwal</span>
+                </a>
 
 
 

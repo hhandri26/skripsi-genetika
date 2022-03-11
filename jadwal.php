@@ -4,9 +4,9 @@ if( !isset( $_SESSION["login"])){
 	header("Location: login.php");
 	exit;
 }
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 require 'koneksi.php';
 include 'genetika.php';
 
@@ -20,6 +20,32 @@ if (isset($_POST["submit"])) {
     $b= new DateTime($akhir);
     $tanggal=date_diff($a,$b);
     $jumlah= (intval($tanggal->days)+1);
+    // array date
+    function getDatesFromRange($start, $end, $format = 'Y-m-d') {
+      
+        // Declare an empty array
+        $array = array();
+          
+        // Variable that store the date interval
+        // of period 1 day
+        $interval = new DateInterval('P1D');
+      
+        $realEnd = new DateTime($end);
+        $realEnd->add($interval);
+      
+        $period = new DatePeriod(new DateTime($start), $interval, $realEnd);
+      
+        // Use loop to store date into array
+        foreach($period as $date) {                 
+            $array[] = $date->format($format); 
+        }
+      
+        // Return the array elements
+        return $array;
+    }
+    $daterange = getDatesFromRange($_POST['tanggal_mulai'],$_POST['tanggal_selesai']);
+    $_SESSION['daterange'] = $daterange;
+  
     // populasi
     $populasi = 0;
     // ambil data karyawan
@@ -87,10 +113,11 @@ if (isset($_POST["submit"])) {
 
     if(isset($_SESSION['jml_hari'])){
         $jml_hari = $_SESSION['jml_hari'];
-      }
-      if(isset($_SESSION['ukuran_populasi'])){
-        $ukuran_populasi = $_SESSION['ukuran_populasi'];
-      }
+    }
+    if(isset($_SESSION['ukuran_populasi'])){
+    $ukuran_populasi = $_SESSION['ukuran_populasi'];
+    }
+    
    
     
 }

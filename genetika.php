@@ -1,8 +1,8 @@
 <?php
 include 'koneksi.php';
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
 class GenetikaPenjadwalan{
     public $ukuranPopulasi, $jmlHari, $crossoverRate, $mutationRate, $maksimalGen, $penalti, $g = 0;
     public function __construct($ukuranPopulasi = "ukuranPopulasi", $jmlHari = "jmlHari", $crossoverRate = "crossoverRate", $mutationRate = "mutationRate", $maksimalGen = "maksimalGen"){
@@ -157,13 +157,13 @@ class GenetikaPenjadwalan{
         }
         //echo "$minutes $seconds";
         for ($i=0; $i < count($kromosom_terbaik['kromosom']); $i++) {
-            $nama_anggota['jmlHari'] = $this->jmlHari;
-            $nama_anggota['penalti'] = $kromosom_terbaik['penalti'];
-            $nama_anggota['fitness'] = $kromosom_terbaik['fitness'];
-            $nama_anggota['iterasi'] = $g;
-            $nama_anggota['exec'] = [$hours, $minutes, $seconds];
-            $nama_anggota['kromosom'][$i]['key'] = $kromosom_terbaik['kromosom'][$i];
-            $nama_anggota['kromosom'][$i]['nama'] = $gen[$kromosom_terbaik['kromosom'][$i]];
+            $nama_anggota['jmlHari']                = $this->jmlHari;
+            $nama_anggota['penalti']                = $kromosom_terbaik['penalti'];
+            $nama_anggota['fitness']                = $kromosom_terbaik['fitness'];
+            $nama_anggota['iterasi']                = $g;
+            $nama_anggota['exec']                   = [$hours, $minutes, $seconds];
+            $nama_anggota['kromosom'][$i]['key']    = $kromosom_terbaik['kromosom'][$i];
+            $nama_anggota['kromosom'][$i]['nama']   = $gen[$kromosom_terbaik['kromosom'][$i]];
         }
 
         // echo "====cek kesesuaian====";
@@ -557,6 +557,7 @@ class GenetikaPenjadwalan{
         }
         $same = [];
         for ($j=0; $j < $this->getJmlHari(); $j++) {
+            $range_hari = $_SESSION['daterange'];
             $kromosom_perhari[$j] = array_slice($krm, $j*24, 24);
             $kromosom_perhari_[$j] = array_slice($krm, $j*24, 24);
 
@@ -576,6 +577,7 @@ class GenetikaPenjadwalan{
             }
             $benturan_pershift = [[]];
             $benturan_malamPagi = [[-1]];
+            $benturan_jadwal = [[]];
             for ($l=0; $l < 3; $l++) {
                 $kromosom_pershift[$j][$l] = array_slice($kromosom_perhari_[$j], $l*8, 8);
                                 
@@ -619,6 +621,11 @@ class GenetikaPenjadwalan{
                     $bg[$j][$k] = "red";
                 }elseif($k > 16 && $k < 24 && in_array($kromosom_perhari_[$j][$k], $benturan_pershift[$j][2])){
                     $bg[$j][$k] = "red";
+                }elseif( in_array($kromosom_perhari_[$j][$k], $benturan_jadwal[$j])){
+                    $bg[$j][$k] = "red";
+                
+                
+                
                 }elseif( in_array($kromosom_perhari_[$j][$k], $benturan_malamPagi[$j])){
                     $bg[$j][$k] = "blue";
                 }elseif(in_array($kromosom_perhari_[$j][$k], $benturan[$j])) {

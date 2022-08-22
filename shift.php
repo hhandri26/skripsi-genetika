@@ -49,6 +49,12 @@ require 'koneksi.php';
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="admin.php">
+                                <span data-feather="file"></span>
+                                Data admin
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link " href="karyawan.php">
                                 <span data-feather="file"></span>
                                 Data Karyawan

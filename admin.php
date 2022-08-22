@@ -7,8 +7,8 @@ if( !isset( $_SESSION["login"])){
 //error_reporting(0);
 require 'koneksi.php';
 
-$jumlahDataPerHalaman = 2;
-$result_halaman = (mysqli_query($kon, "SELECT * FROM libur"));
+$jumlahDataPerHalaman = 4;
+$result_halaman = (mysqli_query($kon, "SELECT * FROM admin"));
 $jumlahData = mysqli_num_rows($result_halaman);
 $jumlahHalaman = ceil($jumlahData / $jumlahDataPerHalaman);
 
@@ -26,15 +26,11 @@ if( isset($_POST['cari'])) {
 	$cari = '';
 }
 
-$result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' OR nik LIKE '%$cari%' LIMIT $awalData,$jumlahDataPerHalaman");
+$result = mysqli_query($kon, "SELECT * FROM admin WHERE username LIKE '%$cari%' LIMIT $awalData,$jumlahDataPerHalaman");
 
 
 
 ?>
-
-
-
-
 <!doctype html>
 <html lang="en">
 
@@ -49,7 +45,7 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
     <script src="asset/js/bootstrap.min.js"></script>
     <script src="asset/js/popper.min.js"></script>
 
-    <title>Halaman Libur</title>
+    <title>Halaman Admin</title>
 
 </head>
 
@@ -76,7 +72,7 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="admin.php">
+                            <a class="nav-link active" href="admin.php">
                                 <span data-feather="file"></span>
                                 Data admin
                             </a>
@@ -88,7 +84,7 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="libur.php">
+                            <a class="nav-link" href="libur.php">
                                 <span data-feather="shopping-cart"></span>
                                 Data Libur
                             </a>
@@ -121,12 +117,12 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
             <main role="main" class="col-md-9 ml-sm-auto col-lg-10 pt-3 px-4">
                 <div class="row">
                     <div class="col-md-12"> 
-                        <a href="libur_tambah.php" class="btn btn-info">Tambah Data Libur</a>
+                        <a href="tambah_admin.php" class="btn btn-info">Tambah Data Admin</a>
                         <form action="" method="Post">
-		
-							<input type="text" name="keyword" size="40" autofocus="" placeholder="Masukkan Nik" autocomplete="off">
-							<button type="submit" name="cari">Cari</button>
-						</form>
+            
+                            <input type="text" name="keyword" size="40" autofocus="" placeholder="Masukkan Nik . ." autocomplete="off">
+                            <button type="submit" name="cari">Cari</button>
+                        </form>
                         <br>
                         <?php if ($halamanAktif > 1) : ?>
                         <a href="?halaman=<?= $halamanAktif - 1; ?>">&laquo;</a>
@@ -147,45 +143,43 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
 
                     </div>
                     <div class="col-md-12">
-                    <div class="table-responsive">
-                    <table class="table table-striped table-sm">
-                        <thead>
-                            <tr>
-								<th>Kode Libur</th>
-								<th>Nik</th>
-								<th>Nama</th>
-								<th>Tanggal</th>
-								<th>Hari</th>
-								<th>Keterangan</th>
-								<th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                           
-						<?php 
+                        <div class="table-responsive">
+                            <table class="table table-striped table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>username</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                
+                                    <?php 
 
-						if(mysqli_num_rows($result)){
+                                    $nomor=1;
 
-						while( $row = mysqli_fetch_assoc($result)) {
-						?>
-								<tr>
-									<td><?= $row["kd_libur"]; ?></td>
-									<td><?= $row["nik"]; ?></td>
-									<td><?= $row["nama_karyawan"]; ?></td>
-									<td><?= date('m-d-Y', strtotime($row["tanggal"])) ?></td>
-									<td><?= $row["hari"]; ?></td>
-									<td><?= $row["keterangan"]; ?></td>
-									<td>
-										<a href="libur_ubah.php?kd_libur=<?= $row["kd_libur"]; ?>">ubah</a> |
-										<a href="libur_hapus.php?kd_libur=<?= $row["kd_libur"]; ?>" onclick="return confirm('yakin ?')">hapus</a>
-									</td>
-								</tr>
-							<?php  }}else{
-								echo '<tr><td colspan="6" align="center"><i>Data Tidak Ditemukan</i></td></tr>';
-							} ?>
-                        </tbody>
-                    </table>
-                </div>
+                                    if(mysqli_num_rows($result)){
+
+
+                                    while( $row = mysqli_fetch_assoc($result)){
+
+
+
+                                    ?>
+                                            <tr>
+                                                <td><?= $nomor++ ?></td>
+                                                <td><?= $row["username"]; ?></td>
+                                                <td>
+                                                    <a href="edit_admin.php?id=<?= $row["kd_admin"]; ?>">ubah</a> |
+                                                    <a href="hapus_admin.php?id=<?= $row["kd_admin"]; ?>" onclick="return confirm('yakin ?')">hapus</a>
+                                                </td>
+                                            </tr>
+                                        <?php  }}else{
+                                            echo '<tr><td colspan="6" align="center"><i>Data Tidak Ditemukan</i></td></tr>';
+                                        } ?>
+                                </tbody>
+                            </table>
+                        </div>
 
                     </div>
 

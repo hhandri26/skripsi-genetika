@@ -14,43 +14,55 @@ class GenetikaPenjadwalan{
     }
 
     public function setUkuranPopulasi($ukuranPopulasi){
+        // fungsi untuk menyimpan ukuran populasi di dalam variabel ukuran populasi
         $this->ukuranPopulasi = $ukuranPopulasi;
     }
     public function getUkuranPopulasi(){
+        // fungsi untuk mengambil nilai dari variabel ukuran populasi
         return $this->ukuranPopulasi;
     }
     public function setJmlHari($jmlHari){
+        // untuk menympan nilai jumlah hari ke dalam variabel jmlhari
         $this->jmlHari = $jmlHari;
     }
     public function getJmlHari(){
+        // untuk mengambil nulai jmlHari
         return $this->jmlHari;
     }
     public function setCrossoverRate($crossoverRate){
+        // setting crossoverrate ke dalam variabel
         $this->crossoverRate = $crossoverRate;
     }
     public function getCrossoverRate(){
+        // untuk mengambil nilai crossoverrate
         return $this->crossoverRate;
     }
     public function setMutationRate($mutationRate){
+        // inisialisasi mutation rate
         $this->mutationRate = $mutationRate;
     }
 
     public function getMutationRate(){
+        // mengambil nilai mutation rate
         return $this->mutationRate;
     }
     public function setMaksimalGen($maksimalGen){
+        // set maksimal gen
         $this->maksimalGen = $maksimalGen;
     }
     public function getMaksimalGen(){
+        // mengambil maksimal gen
         return $this->maksimalGen;
     }
 
     public function hitungPopulasi(){
+        // menghitung jumlah populasi di X 2
         $x = $this->ukuranPopulasi;
         return $x*2;
     }
 
     public function database(){
+        // querry data anggota dari database
         $kon = $kon = mysqli_connect("localhost","root","","skripsi-genetika");
         
         $data = mysqli_query($kon, "SELECT a.*, b.tanggal, b.hari, b.keterangan FROM karyawan a LEFT JOIN libur b ON a.nik = b.nik ");
@@ -63,6 +75,7 @@ class GenetikaPenjadwalan{
     }
 
     public function inisialisasi_awal(){
+        // inisialisasi awal
         $data_anggota = $this->database();
         //anggota polisi
         $gen = [];
@@ -79,6 +92,7 @@ class GenetikaPenjadwalan{
         return $fk;
     }
     public function prosesPenjadwalanGA(){
+        // prosess penjadwalan ga
         $data_anggota = $this->database();
         $gen = [];
         for ($i=0; $i < count($data_anggota); $i++) { 

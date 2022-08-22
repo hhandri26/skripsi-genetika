@@ -4,33 +4,49 @@ if( !isset( $_SESSION["login"])){
 	header("Location: login.php");
 	exit;
 }
-//error_reporting(0);
 require 'koneksi.php';
 
-$jumlahDataPerHalaman = 2;
-$result_halaman = (mysqli_query($kon, "SELECT * FROM libur"));
-$jumlahData = mysqli_num_rows($result_halaman);
-$jumlahHalaman = ceil($jumlahData / $jumlahDataPerHalaman);
 
-if( isset($_GET['halaman'])){
-	$halamanAktif = $_GET['halaman'];
-}else{
-	$halamanAktif = 1;
-}
-$awalData = ($jumlahDataPerHalaman * $halamanAktif) - $jumlahDataPerHalaman ;
+// ambil data di url
+$id = $_GET["id"];
+
+$result = mysqli_query($kon, "SELECT * FROM admin WHERE kd_admin = $id");
 
 
-if( isset($_POST['cari'])) {
-	$cari = $_POST['keyword'];
+
+// apakah tombol submit sudah pernah terpakai atau belum
+if (isset($_POST["submit"])) {
+
+
+	$username = htmlspecialchars($_POST["username"]);
+	$password = htmlspecialchars($_POST["password"]);
+    $pss = md5($password);
+
+
+	mysqli_query($kon, "UPDATE admin SET
+	username = '$username',
+	password = '$pss'
+	WHERE kd_admin = '$id'
+	");
+
+
+
+// cek apakah data berhasil diubah atau tidak
+if( mysqli_affected_rows($kon) > 0){
+	echo "<script>
+	alert('Data Berhasil Diubah');
+	document.location.href = 'admin.php';
+	</script>";
 } else {
-	$cari = '';
+	echo "<script>
+	alert('Data gagal Diubah');
+	document.location.href = 'admin.php';
+	</script>";
+
 }
-
-$result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' OR nik LIKE '%$cari%' LIMIT $awalData,$jumlahDataPerHalaman");
-
-
-
+}
 ?>
+
 
 
 
@@ -49,7 +65,7 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
     <script src="asset/js/bootstrap.min.js"></script>
     <script src="asset/js/popper.min.js"></script>
 
-    <title>Halaman Libur</title>
+    <title>Halaman Admin</title>
 
 </head>
 
@@ -76,19 +92,25 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="admin.php">
+                            <a class="nav-link active" href="admin.php">
                                 <span data-feather="file"></span>
                                 Data admin
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="karyawan.php">
+                            <a class="nav-link active" href="admin.php">
+                                <span data-feather="file"></span>
+                                Data admin
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="karyawan.php">
                                 <span data-feather="file"></span>
                                 Data Karyawan
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="libur.php">
+                            <a class="nav-link" href="libur.php">
                                 <span data-feather="shopping-cart"></span>
                                 Data Libur
                             </a>
@@ -119,77 +141,30 @@ $result = mysqli_query($kon, "SELECT * FROM libur WHERE kd_libur LIKE '%$cari%' 
             </nav>
 
             <main role="main" class="col-md-9 ml-sm-auto col-lg-10 pt-3 px-4">
-                <div class="row">
-                    <div class="col-md-12"> 
-                        <a href="libur_tambah.php" class="btn btn-info">Tambah Data Libur</a>
-                        <form action="" method="Post">
-		
-							<input type="text" name="keyword" size="40" autofocus="" placeholder="Masukkan Nik" autocomplete="off">
-							<button type="submit" name="cari">Cari</button>
-						</form>
-                        <br>
-                        <?php if ($halamanAktif > 1) : ?>
-                        <a href="?halaman=<?= $halamanAktif - 1; ?>">&laquo;</a>
-                        <?php endif; ?>
-
-                        <?php for($i = 1; $i <= $jumlahHalaman; $i++) : ?>
-                            <?php if($i == $halamanAktif) : ?>
-                                <a href="?halaman=<?= $i; ?>" style="font-weight: bold; color:red;"><?= $i; ?></a>
-                                <?php else : ?>
-                                    <a href="?halaman=<?= $i; ?>"><?= $i; ?></a>
-                                <?php endif; ?>
-                            <?php endfor; ?>
-
-                            <?php if ($halamanAktif < $jumlahHalaman) : ?>
-                        <a href="?halaman=<?= $halamanAktif + 1; ?>">&raquo;</a>
-                        <?php endif; ?>
+			<form action="" method="post">
+				<ul>
+					<?php	
+				while( $data = mysqli_fetch_array($result)) :
+				?>
+					<li>
+						<label for="username">username :</label>
+						<input type="text" name="username" class="form-control"  id="username" required value="<?= $data["username"] ?>">
+					</li>
+					<li>
+						<label for="nama_karyawan">Password :</label>
+						<input type="text" name="password" class="form-control" id="password" value="">
+					</li>
+				
+					<br>
+					<li>
+						<button text="submit" name="submit">Ubah</button>
+					</li>
+					<?php endwhile; ?>
+				</ul>
+				
 
 
-                    </div>
-                    <div class="col-md-12">
-                    <div class="table-responsive">
-                    <table class="table table-striped table-sm">
-                        <thead>
-                            <tr>
-								<th>Kode Libur</th>
-								<th>Nik</th>
-								<th>Nama</th>
-								<th>Tanggal</th>
-								<th>Hari</th>
-								<th>Keterangan</th>
-								<th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                           
-						<?php 
-
-						if(mysqli_num_rows($result)){
-
-						while( $row = mysqli_fetch_assoc($result)) {
-						?>
-								<tr>
-									<td><?= $row["kd_libur"]; ?></td>
-									<td><?= $row["nik"]; ?></td>
-									<td><?= $row["nama_karyawan"]; ?></td>
-									<td><?= date('m-d-Y', strtotime($row["tanggal"])) ?></td>
-									<td><?= $row["hari"]; ?></td>
-									<td><?= $row["keterangan"]; ?></td>
-									<td>
-										<a href="libur_ubah.php?kd_libur=<?= $row["kd_libur"]; ?>">ubah</a> |
-										<a href="libur_hapus.php?kd_libur=<?= $row["kd_libur"]; ?>" onclick="return confirm('yakin ?')">hapus</a>
-									</td>
-								</tr>
-							<?php  }}else{
-								echo '<tr><td colspan="6" align="center"><i>Data Tidak Ditemukan</i></td></tr>';
-							} ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                    </div>
-
-                </div>
+			</form>
                
 
 

@@ -14,31 +14,40 @@ echo '
 <!DOCTYPE html>
 <head>
     <title>Cetak Jadwal</title>
-</head>
+</head> 
+
 <body>
     <h1 align="center">Jadwal Shift Karaywan</h1>
-    <table>
-        <tr>
-            <td>Fitness<td>
-            <td> : <td>
-            <td>'.$anggota['fitness'].'</td>
-        </tr>
-        <tr>
-            <td>Iterasi<td>
-            <td> : <td>
-            <td>'.$anggota['iterasi'].'</td>
-        </tr>
-        <tr>
-            <td>Waktu Eksekusi<td>
-            <td> : <td>
-            <td>'.implode(" ",$anggota['exec']).'</td>
-        </tr>
-        <tr>
-            <td>Kesesuaian<td>
-            <td> : <td>
-            <td>'.$anggota['akurasi'].' %</td>
-        </tr>
-    </table>
+    <div class="row"> 
+        <div class="col-md-6" style="width:50%;float:left;">
+            <table>
+                <tr>
+                    <td>Fitness<td>
+                    <td> : <td>
+                    <td>'.$anggota['fitness'].'</td>
+                </tr>
+                <tr>
+                    <td>Iterasi<td>
+                    <td> : <td>
+                    <td>'.$anggota['iterasi'].'</td>
+                </tr>
+                <tr>
+                    <td>Waktu Eksekusi<td>
+                    <td> : <td>
+                    <td>'.implode(" ",$anggota['exec']).'</td>
+                </tr>
+                <tr>
+                    <td>Kesesuaian<td>
+                    <td> : <td>
+                    <td>'.$anggota['akurasi'].' %</td>
+                </tr>
+            </table>
+        </div>
+        <div class="col-md-6">
+        shift pagi : 06.00-14.00 <br> shift siang : 14.00-22.00 <br> shift malam : 22.00-06.00
+        
+        </div>
+    </div>
     <table align="center" border="1" cellpadding="10" cellspacing="0">
         <tr>
             <td align="center">Tgl</td>
@@ -65,9 +74,38 @@ echo '
     }
 echo '
     </table>
+    <table>
+    <tr>
+        <td style="text-align:right">
+        Yang Menandatangani
+        </td>
+
+    </tr>
+    <tr>
+    </tr>
+    <tr>
+    <td>
+    <br>
+                                  <br>
+                                  <br>
+                                  <br>
+                                  <br>
+                                  <br>
+                                  <br>
+                                  <br>
+                                  <br>(&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;)</td>
+    
+    </tr>
+    </table>
+   
+      
+        
+   
 </body>
 </html>
 ';
+
+//return $html;
 $html = ob_get_contents();
 ob_end_clean();
 

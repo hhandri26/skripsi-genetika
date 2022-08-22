@@ -11,9 +11,10 @@ require 'koneksi.php';
 if( isset($_POST["login"])) {
 	$username = $_POST["username"];
 	$password = $_POST["password"];
+	$pss = md5($password);
 
 
-	$result = mysqli_query($kon, "SELECT * FROM admin WHERE username = '$username'");
+	$result = mysqli_query($kon, "SELECT * FROM admin WHERE username = '$username' and password = '$pss'");
 
 
 	//cek username

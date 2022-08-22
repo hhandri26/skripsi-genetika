@@ -72,6 +72,12 @@ $result = mysqli_query($kon, "SELECT * FROM karyawan WHERE nik LIKE '%$cari%' OR
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link" href="admin.php">
+                                <span data-feather="file"></span>
+                                Data admin
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link active" href="karyawan.php">
                                 <span data-feather="file"></span>
                                 Data Karyawan

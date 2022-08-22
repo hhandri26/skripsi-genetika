@@ -67,7 +67,7 @@ if( mysqli_affected_rows($kon) > 0){
     <script src="asset/js/bootstrap.min.js"></script>
     <script src="asset/js/popper.min.js"></script>
 
-    <title>Halaman Shift</title>
+    <title>Halaman Parameter</title>
 
 </head>
 
@@ -91,6 +91,12 @@ if( mysqli_affected_rows($kon) > 0){
                             <a class="nav-link " href="index.php">
                                 <span data-feather="home"></span>
                                 Dashboard <span class="sr-only">(current)</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="admin.php">
+                                <span data-feather="file"></span>
+                                Data admin
                             </a>
                         </li>
                         <li class="nav-item">
